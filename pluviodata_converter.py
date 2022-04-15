@@ -1,0 +1,246 @@
+import pandas as pd
+import os
+from datetime import datetime as dt
+import numpy as np
+import calendar
+
+# working with pandas==1.3.5
+
+'''Note: Date not included in the digitalised file (.csv) is interpreted as dry day! 
+        Missing day has a date but no data in the .csv file! 
+        Snow days have -s after the date in the .csv file!
+        -r after the date means points (without possibility of overlap) were manually added.'''
+
+# time interval in minutes used for correction of overlapping points on the upper and lower branches of the curve
+t_int = 15
+
+# create a list of all the .csv files in the working directory
+listfiles = [fi for fi in os.listdir() if fi.endswith(".csv")]
+listfiles.sort()
+
+# split the date string into seperate numbers
+def split(word):
+    return [char for char in word]
+
+# creates coordinates to add to the dataset
+# x koordinata teče od 00001 namesto od 00000, ker pri programu za izračun količine padavin mora biti vrednost različna od 0 (!=0)
+df_coord = pd.DataFrame([['01', '00001', '20000'],['01', '24000', '20000'],['01', '00001', '10000']],columns=['code', 'x', 'y'])
+
+# code for a dry day
+df_dry = pd.DataFrame([['02', '12345', '12345']],columns=['code', 'x', 'y'])
+
+# code for a missing day
+df_missing = pd.DataFrame([['03', '12345', '12345']],columns=['code', 'x', 'y'])
+
+# code for a snow day
+df_snow = pd.DataFrame([['04', '12345', '12345']],columns=['code', 'x', 'y'])
+
+# code for the end of a sequence
+df_end = pd.DataFrame([['0#', '12345', '12345']],columns=['code', 'x', 'y'])
+
+
+
+for file_num in listfiles:
+    
+    df = pd.read_csv(file_num)
+    
+    # list of all the dates present in the dataframe
+    date_table_list=[]
+    i = 0
+    while i < df.shape[1]:
+        try:
+            if '-s' in df.columns[i]:
+                sneg = df.columns[i]
+                sneg = dt.strptime(sneg.replace('-s',''), '%d-%m-%Y')
+                date_table_list.append(sneg)
+                i +=2
+            elif '-r' in df.columns[i]:
+                rocno = df.columns[i]
+                rocno = dt.strptime(rocno.replace('-r',''), '%d-%m-%Y')
+                date_table_list.append(rocno)
+                i +=2
+            else:
+                dez = dt.strptime(df.columns[i], '%d-%m-%Y')
+                date_table_list.append(dez)
+                i +=2
+        except ValueError:
+            i +=2
+
+    # populate a list of all dates in a month in the DataFrame
+    # itermonthdates(year, month) This iterator will return all days (as datetime.date objects) for the month and all days before the start of the month or after the end of the month that are required to get a complete week.
+    date_month_list=[]
+    cal= calendar.Calendar() 
+    # iterating with itermonthdates
+    for day in cal.itermonthdates(date_table_list[0].year, date_table_list[0].month):  
+        date_month_list.append(day) 
+    # filter the dates for only the relevant month
+    date_month_list_filtered = list(filter(lambda x: x.month == date_table_list[0].month, date_month_list))
+
+    # create a dictionary table of all the dates present in the dataframe
+    def dict_table_():
+        df_date_table_list1 = pd.DataFrame(columns = ['Datum', 'Indeks', 'Padavina', 'Time_interval'])
+        j = 0
+        while j < df.shape[1]:
+            try:
+                if '-s' in df.columns[j]:
+                    sneg = df.columns[j]
+                    sneg = dt.strptime(sneg.replace('-s',''), '%d-%m-%Y')
+                    df_date_table_list1 = df_date_table_list1.append({'Datum' : sneg, 'Indeks' : j, 'Padavina' : 'sneg', 'Time_interval' : t_int}, 
+                        ignore_index = True)
+                    j +=2
+                elif '-r' in df.columns[j]:
+                    rocno = df.columns[j]
+                    rocno = dt.strptime(rocno.replace('-r',''), '%d-%m-%Y')
+                    df_date_table_list1 = df_date_table_list1.append({'Datum' : rocno, 'Indeks' : j, 'Padavina' : 'dez', 'Time_interval' : 0}, 
+                        ignore_index = True)
+                    j +=2
+                elif '-s' and '-r' not in df.columns[j] and pd.isna(df.iloc[1,j]) == True:
+                    manj = df.columns[j]
+                    manj = dt.strptime(df.columns[j], '%d-%m-%Y')
+                    df_date_table_list1 = df_date_table_list1.append({'Datum' : manj, 'Indeks' : j, 'Padavina' : 'manjka', 'Time_interval' : t_int}, 
+                        ignore_index = True)
+                    j +=2
+                else:
+                    dez = dt.strptime(df.columns[j], '%d-%m-%Y')
+                    df_date_table_list1 = df_date_table_list1.append({'Datum' : dez, 'Indeks' : j, 'Padavina' : 'dez', 'Time_interval' : t_int}, 
+                        ignore_index = True)
+                    j +=2
+            except ValueError:
+                j +=2
+        df_date_table_list1.sort_values(by=['Datum'], inplace=True)          # sorts the dates if the digitalizations are not in chronological order 
+        df_date_table_list1 = df_date_table_list1.reset_index(drop=True)     # reset row index values
+        return df_date_table_list1
+    dict_table = dict_table_()
+
+
+            
+    # creating a header with station name and date
+    def df_head(day):
+        # read the date from column name and convert it to date string
+        date_string = date_month_list_filtered[day].strftime('%y%m%d%H%M')
+        # print the date in the form of izhodni format
+        df_fraction1 = pd.DataFrame([['0*', '00000', '00000']],columns=['code', 'x', 'y'])
+        for num in os.path.splitext(file_num)[0][0:3]:      # insert .csv filename of the second file in the working directory in the form of izhodni format
+            df_fraction1 = df_fraction1.append({'code': '0'+num, 'x': '12345', 'y': '12345'}, ignore_index=True)
+        for value in range(10):
+            df_fraction1 = df_fraction1.append({'code': '0'+split(date_string)[value], 'x': '12345', 'y': '12345'}, ignore_index=True)
+        return df_fraction1
+
+    # data points for one day in a specified output format
+    def df_meritve(col, cas_interval):
+        df_temp = df[[df.columns[col],df.columns[col+1]]]   # display first and second columns (X and Y) as df_temp
+        df_temp = df_temp.dropna().drop(index=0) # drop rows with any column having NA/null data and first row
+        df_temp = df_temp.apply(pd.to_numeric)  # convert values in table to float
+        
+        df_temp = df_temp[df_temp.iloc[:, 0] > 0]   #drop all rows where x is negative
+        df_temp = df_temp[df_temp.iloc[:, 0] < 24]   #drop all rows where x > 24
+        df_temp.iloc[:, 1] = df_temp.iloc[:, 1].transform(lambda x: x-x.min())  # shift y values to 0+
+        
+        df_temp = df_temp * 1000
+        df_temp = np.trunc(df_temp)   # cut off decimals
+        df_temp = df_temp.apply(pd.to_numeric, downcast="integer")    # convert values to integer
+        df_temp = df_temp.sort_values(by=[df_temp.columns[0]])    # sort by values in first (X) column
+        df_temp = df_temp.reset_index(drop=True)     # reset row index values
+        
+        # popravljanje prekrivanja krivulj pri praznjenju pluviografa (correct overlap at the jumps)
+        df_temp.columns = ['x', 'y']  # rename columns
+        k = 0
+        while k < df_temp.shape[0]-1:
+            if (df_temp.loc[k,'y'] - df_temp.loc[k+1,'y']) > 7500:   #zazna, da se posoda sprazne
+                cas_z = df_temp.loc[k,'x']            # zadnja casovna tocka pred praznjenjem
+                cas_k = cas_z + (cas_interval/60*1000)          # konec casovnega okna, ki ga gledamo; casovni interval 15 min (15/60*1000) po praznjenju posode
+                l = k                                 # k - index na zacetku casovnega okna, l - index na koncu casovnega okna
+                s = k                                 # s - index, ki tece znotraj 15 min casovnega okna
+                while df_temp.loc[l,'x'] <= cas_k:
+                    l += 1
+                #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
+                while s < l:
+                    if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -7500:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje
+                        print('Corrected overlap at the jumps on the date below.', 'Time:', cas_z, 'No. points:', l-k+1)
+                        up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo), meja 5000
+                        lo = []
+                        for val in df_temp.loc[k:l, 'y']:
+                            if val > 5000:
+                                up.append(val)
+                                #up.sort() 
+                            else:
+                                lo.append(val)
+                                #lo.sort()
+                        jump = up + lo        # lista tock z up + lo vejama
+                        q = k                 # index, ki teše po 15 min intervalu, po tockah, ki jih je potrebno zamenjati  
+                        p = 0                 # index, ki teče po jump listi tock
+                        while q <= l:
+                            df_temp.at[q,'y'] = jump[p]  # zamenja tocke v tabeli z urejenimi
+                            q += 1
+                            p += 1
+                        s = l
+                    else:
+                        s += 1
+                k = l
+            else:
+                k += 1
+        
+        df_temp.iloc[:, 1] = df_temp.iloc[:, 1].transform(lambda x: 20000-x)  # convert y values to descending
+        df_temp = df_temp.applymap(str)    # convert values back to string for zero padding
+        df_temp = df_temp.applymap(lambda x: x.zfill(5))   # zero padd both columns
+        df_temp.insert(0, "code", '02', allow_duplicates=True)   # insert an id column (alters column indexes!!)
+        df_temp.columns = ['code', 'x', 'y']  # rename columns
+        return df_temp    
+    
+    # creating the final dataset in the specified output format for a measuring station for one month
+    n = 0
+    m = 0
+    df_inter = []
+    while n < len(date_month_list_filtered):
+        if pd.to_datetime(date_month_list_filtered[n]) in dict_table['Datum'].tolist():
+            if dict_table.loc[m,'Padavina'] == 'sneg':
+                re = pd.concat([df_head(n), df_snow, df_end], ignore_index=True)
+                df_inter.append(re)
+                n += 1
+                m += 1
+            elif dict_table.loc[m,'Padavina'] == 'manjka':
+                re = pd.concat([df_head(n), df_missing, df_end], ignore_index=True)
+                df_inter.append(re)
+                n += 1
+                m += 1
+            elif dict_table.loc[m,'Padavina'] == 'dez':
+                re = pd.concat([df_head(n), df_coord, df_meritve(dict_table.loc[m,'Indeks'], dict_table.loc[m,'Time_interval']), df_end], ignore_index=True)
+                df_inter.append(re)
+                print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'))
+                n += 1
+                m += 1
+        else:  # for a dry day
+            re = pd.concat([df_head(n), df_dry, df_end], ignore_index=True)
+            df_inter.append(re)
+            n += 1  
+    df_final = pd.concat(df_inter, ignore_index=True)   
+
+    # write to file
+    #file_name = 'o' + os.path.splitext(file_num)[0][0:3] + date_month_list_filtered[0].strftime('%y%m')
+    #df_final.to_csv(file_name, sep=' ', index=False, header=False)
+
+    
+    # creating new directory for the relevant month
+    folder_name = 'Output_files' + date_month_list_filtered[0].strftime('%y%m')
+    os.makedirs(folder_name, exist_ok=True)  
+    
+    # writing and saving the file and adding file extension with repetition (version) number
+    f_num = 1   # number of the file extension
+    file_name = 'o' + os.path.splitext(file_num)[0][0:3] + date_month_list_filtered[0].strftime('%y%m') + '.' + str(f_num).zfill(3)
+    while (os.path.exists(os.path.abspath(os.path.join(folder_name, file_name)))):
+        f_num+=1
+        file_name = 'o' + os.path.splitext(file_num)[0][0:3] + date_month_list_filtered[0].strftime('%y%m') + '.' + str(f_num).zfill(3)
+
+    df_final.to_csv(os.path.join(folder_name, file_name), sep=' ', index=False, header=False)
+    
+    
+    print('Dates above are included in the file:', file_name)
+
+
+
+
+
+
+
+
+
