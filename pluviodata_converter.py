@@ -148,13 +148,16 @@ for file_num in listfiles:
         while k < df_temp.shape[0]-1:
             if (df_temp.loc[k,'y'] - df_temp.loc[k+1,'y']) > 7500:   #zazna, da se posoda sprazne
                 cas_z = df_temp.loc[k,'x']            # zadnja casovna tocka pred praznjenjem
-                cas_k = cas_z + (cas_interval/60*1000)          # konec casovnega okna, ki ga gledamo; casovni interval 15 min (15/60*1000) po praznjenju posode
+                if cas_z + (cas_interval/60*1000) <= df_temp.iloc[-1,0]:
+                    cas_k = cas_z + (cas_interval/60*1000)      # konec casovnega okna, ki ga gledamo; casovni interval 15 min (15/60*1000)
+                else:
+                    cas_k = df_temp.iloc[-1,0]               # konec časovnega okna sovpada s koncem meritev, v primeru, da je prelivanje konec dneva                
                 l = k                                 # k - index na zacetku casovnega okna, l - index na koncu casovnega okna
                 s = k                                 # s - index, ki tece znotraj 15 min casovnega okna
-                while df_temp.loc[l,'x'] <= cas_k:
+                while df_temp.loc[l-1,'x'] < cas_k:
                     l += 1
                 #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
-                while s < l:
+                while s < l-1:
                     if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -7500:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje
                         print('Corrected overlap at the jumps on the date below.', 'Time:', cas_z, 'No. points:', l-k+1)
                         up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo), meja 5000
