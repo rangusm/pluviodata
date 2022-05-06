@@ -11,8 +11,9 @@ import calendar
         Snow days have -s after the date in the .csv file!
         -r after the date means points (without possibility of overlap) were manually added.'''
 
-# time interval in minutes used for correction of overlapping points on the upper and lower branches of the curve
-t_int = 15
+
+t_int = 15          # time interval in minutes used for correction of overlapping points on the upper and lower branches of the curve
+skok_razpon = 5000  # razpon med točkami zgornje in spodnje krivulje pri praznenju posode
 
 # create a list of all the .csv files in the working directory
 listfiles = [fi for fi in os.listdir() if fi.endswith(".csv")]
@@ -146,7 +147,7 @@ for file_num in listfiles:
         df_temp.columns = ['x', 'y']  # rename columns
         k = 0
         while k < df_temp.shape[0]-1:
-            if (df_temp.loc[k,'y'] - df_temp.loc[k+1,'y']) > 7500:   #zazna, da se posoda sprazne
+            if (df_temp.loc[k,'y'] - df_temp.loc[k+1,'y']) > skok_razpon:   #zazna, da se posoda sprazne
                 cas_z = df_temp.loc[k,'x']            # zadnja casovna tocka pred praznjenjem
                 if cas_z + (cas_interval/60*1000) <= df_temp.iloc[-1,0]:
                     cas_k = cas_z + (cas_interval/60*1000)      # konec casovnega okna, ki ga gledamo; casovni interval 15 min (15/60*1000)
@@ -158,7 +159,7 @@ for file_num in listfiles:
                     l += 1
                 #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
                 while s < l-1:
-                    if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -7500:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje
+                    if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -skok_razpon:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje
                         print('Corrected overlap at the jumps on the date below.', 'Time:', cas_z, 'No. points:', l-k+1)
                         up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo), meja 5000
                         lo = []
@@ -170,7 +171,7 @@ for file_num in listfiles:
                                 lo.append(val)
                                 #lo.sort()
                         jump = up + lo        # lista tock z up + lo vejama
-                        q = k                 # index, ki teše po 15 min intervalu, po tockah, ki jih je potrebno zamenjati  
+                        q = k                 # index, ki teče po 15 min intervalu, po tockah, ki jih je potrebno zamenjati  
                         p = 0                 # index, ki teče po jump listi tock
                         while q <= l:
                             df_temp.at[q,'y'] = jump[p]  # zamenja tocke v tabeli z urejenimi
