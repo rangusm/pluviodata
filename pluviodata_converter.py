@@ -184,6 +184,16 @@ for file_num in listfiles:
             else:
                 k += 1
         
+
+        u = 0
+        while u < df_temp.shape[0]-1:
+            if ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) > 0) and ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) <= 200):   #zazna šum do 0.2 mm (naslednja točka je nižja od prejšnje)
+                df_temp.loc[u+1,'y'] = df_temp.loc[u,'y']            # nižjo točko premaknemo gor, na vrednost predhodne točke
+                u += 1
+            else:
+                u += 1
+
+
         df_temp.iloc[:, 1] = df_temp.iloc[:, 1].transform(lambda x: 20000-x)  # convert y values to descending
         df_temp = df_temp.applymap(str)    # convert values back to string for zero padding
         df_temp = df_temp.applymap(lambda x: x.zfill(5))   # zero padd both columns
