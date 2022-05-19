@@ -13,7 +13,7 @@ import calendar
 
 
 t_int = 15          # time interval in minutes used for correction of overlapping points on the upper and lower branches of the curve
-skok_razpon = 5000  # razpon med točkami zgornje in spodnje krivulje pri praznenju posode
+skok_razpon = 5000  # razpon med tockami zgornje in spodnje krivulje pri praznenju posode
 
 # create a list of all the .csv files in the working directory
 listfiles = [fi for fi in os.listdir() if fi.endswith(".csv")]
@@ -24,7 +24,7 @@ def split(word):
     return [char for char in word]
 
 # creates coordinates to add to the dataset
-# x koordinata teče od 00001 namesto od 00000, ker pri programu za izračun količine padavin mora biti vrednost različna od 0 (!=0)
+# x koordinata tece od 00001 namesto od 00000, ker pri programu za izracun kolicine padavin mora biti vrednost razlicna od 0 (!=0)
 df_coord = pd.DataFrame([['01', '00001', '20000'],['01', '24000', '20000'],['01', '00001', '10000']],columns=['code', 'x', 'y'])
 
 # code for a dry day
@@ -152,27 +152,31 @@ for file_num in listfiles:
                 if cas_z + (cas_interval/60*1000) <= df_temp.iloc[-1,0]:
                     cas_k = cas_z + (cas_interval/60*1000)      # konec casovnega okna, ki ga gledamo; casovni interval 15 min (15/60*1000)
                 else:
-                    cas_k = df_temp.iloc[-1,0]               # konec časovnega okna sovpada s koncem meritev, v primeru, da je prelivanje konec dneva                
+                    cas_k = df_temp.iloc[-1,0]               # konec casovnega okna sovpada s koncem meritev, v primeru, da je prelivanje konec dneva                
                 l = k                                 # k - index na zacetku casovnega okna, l - index na koncu casovnega okna
                 s = k                                 # s - index, ki tece znotraj 15 min casovnega okna
-                while df_temp.loc[l-1,'x'] < cas_k:
-                    l += 1
-                #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
+                if df_temp.loc[l,'x'] < cas_k:        # zanka postavi index l na konec casovnega okna
+                    while df_temp.loc[l,'x'] < cas_k:
+                        l += 1
+                    #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
+                else:
+                    l=k+1
+                    #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
                 while s < l-1:
-                    if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -skok_razpon:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje
+                    if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -skok_razpon:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje znotraj casovnega okna
                         print('Corrected overlap at the jumps on the date below.', 'Time:', cas_z, 'No. points:', l-k+1)
-                        up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo), meja 5000
+                        up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo)
                         lo = []
                         for val in df_temp.loc[k:l, 'y']:
-                            if val > 5000:
+                            if val >= df_temp.loc[k,'y']:         # meja za razporeditev tock v zgornjo ali spodnjo vejo postavljena na y prve tocke na zgornji veji pri prekrivanju
                                 up.append(val)
                                 #up.sort() 
                             else:
                                 lo.append(val)
                                 #lo.sort()
                         jump = up + lo        # lista tock z up + lo vejama
-                        q = k                 # index, ki teče po 15 min intervalu, po tockah, ki jih je potrebno zamenjati  
-                        p = 0                 # index, ki teče po jump listi tock
+                        q = k                 # index, ki tece po 15 min intervalu, po tockah, ki jih je potrebno zamenjati  
+                        p = 0                 # index, ki tece po jump listi tock
                         while q <= l:
                             df_temp.at[q,'y'] = jump[p]  # zamenja tocke v tabeli z urejenimi
                             q += 1
@@ -187,8 +191,8 @@ for file_num in listfiles:
 
         u = 0
         while u < df_temp.shape[0]-1:
-            if ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) > 0) and ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) <= 200):   #zazna šum do 0.2 mm (naslednja točka je nižja od prejšnje)
-                df_temp.loc[u+1,'y'] = df_temp.loc[u,'y']            # nižjo točko premaknemo gor, na vrednost predhodne točke
+            if ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) > 0) and ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) <= 200):   #zazna sum do 0.2 mm (naslednja tocka je nizja od prejsnje)
+                df_temp.loc[u+1,'y'] = df_temp.loc[u,'y']            # nizjo tocko premaknemo gor, na vrednost predhodne tocke
                 u += 1
             else:
                 u += 1
@@ -235,7 +239,7 @@ for file_num in listfiles:
 
     
     # creating new directory for the relevant month
-    folder_name = 'Output_files' + date_month_list_filtered[0].strftime('%y%m')
+    folder_name = 'Output_files_tretjic' + date_month_list_filtered[0].strftime('%y%m')
     os.makedirs(folder_name, exist_ok=True)  
     
     # writing and saving the file and adding file extension with repetition (version) number
