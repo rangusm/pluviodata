@@ -133,15 +133,25 @@ for file_num in listfiles:
         df_temp = df_temp.dropna().drop(index=0) # drop rows with any column having NA/null data and first row
         df_temp = df_temp.apply(pd.to_numeric)  # convert values in table to float
         
-        df_temp = df_temp[df_temp.iloc[:, 0] > 0]   #drop all rows where x is negative
-        df_temp = df_temp[df_temp.iloc[:, 0] < 24]   #drop all rows where x > 24
+        #df_temp = df_temp[df_temp.iloc[:, 0] >= 0]   #drop all rows where x is negative
+        #df_temp = df_temp[df_temp.iloc[:, 0] <= 24]   #drop all rows where x > 24
         df_temp.iloc[:, 1] = df_temp.iloc[:, 1].transform(lambda x: x-x.min())  # shift y values to 0+
+        df_temp = df_temp.sort_values(by=[df_temp.columns[0]])    # sort by values in first (X) column
+        df_temp = df_temp.reset_index(drop=True)     # reset row index values
+
+    # Zamik x osi, da so vrednosti med 0 in 24h   
+        if (df_temp.iloc[-1, 0] - df_temp.iloc[0, 0]) <= 24 and df_temp.iloc[0, 0] < 0:
+            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x-x.min())
+        elif (df_temp.iloc[-1, 0] - df_temp.iloc[0, 0]) <= 24 and df_temp.iloc[-1, 0] > 24:
+            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x-(x.max()-24))
+        elif (df_temp.iloc[-1, 0] - df_temp.iloc[0, 0]) > 24:
+            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x-x.min())
+            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x*24/df_temp.iloc[-1, 0])
         
         df_temp = df_temp * 1000
         df_temp = np.trunc(df_temp)   # cut off decimals
         df_temp = df_temp.apply(pd.to_numeric, downcast="integer")    # convert values to integer
-        df_temp = df_temp.sort_values(by=[df_temp.columns[0]])    # sort by values in first (X) column
-        df_temp = df_temp.reset_index(drop=True)     # reset row index values
+
         
         # popravljanje prekrivanja krivulj pri praznjenju pluviografa (correct overlap at the jumps)
         df_temp.columns = ['x', 'y']  # rename columns
@@ -239,7 +249,7 @@ for file_num in listfiles:
 
     
     # creating new directory for the relevant month
-    folder_name = 'Output_files_tretjic' + date_month_list_filtered[0].strftime('%y%m')
+    folder_name = 'Output_files' + date_month_list_filtered[0].strftime('%y%m')
     os.makedirs(folder_name, exist_ok=True)  
     
     # writing and saving the file and adding file extension with repetition (version) number
