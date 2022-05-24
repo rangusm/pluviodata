@@ -3,6 +3,7 @@ import os
 from datetime import datetime as dt
 import numpy as np
 import calendar
+import argparse
 
 # working with pandas==1.3.5
 
@@ -15,6 +16,16 @@ import calendar
 t_int = 20          # time interval in minutes used for correction of overlapping points on the upper and lower branches of the curve
 skok_razpon = 5000  # razpon med tockami zgornje in spodnje krivulje pri praznenju posode
 razpon_tocka = 7000 # razpon med tockami pri detekciji tocke izven krivulje
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-v', '--verbose', action="store_true", help='Podrobnejsi izpis popravkov prekrivanja in kreiranih datotek')
+
+args = parser.parse_args()
+verbose = args.verbose
+
+verboseprint = print if verbose else lambda *a, **k: None
+
 
 # create a list of all the .csv files in the working directory
 listfiles = [fi for fi in os.listdir() if fi.endswith(".csv")]
@@ -175,7 +186,7 @@ for file_num in listfiles:
                     #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
                 while s < l-1:
                     if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -skok_razpon:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje znotraj casovnega okna
-                        print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'),'Popravljeno prekrivanje tock.', 'Cas:', cas_z, ',', 'St. tock:', l-k+1)
+                        verboseprint(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'),'Popravljeno prekrivanje tock.', 'Cas:', cas_z, ',', 'St. tock:', l-k+1)
                         up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo)
                         lo = []
                         for val in df_temp.loc[k:l, 'y']:
@@ -271,7 +282,7 @@ for file_num in listfiles:
     df_final.to_csv(os.path.join(folder_name, file_name), sep=' ', index=False, header=False)
     
     
-    print('Narejena datoteka:', file_name)
+    verboseprint('Narejena datoteka:', file_name)
 
 
 
