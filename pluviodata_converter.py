@@ -12,8 +12,9 @@ import calendar
         -r after the date means points (without possibility of overlap) were manually added.'''
 
 
-t_int = 15          # time interval in minutes used for correction of overlapping points on the upper and lower branches of the curve
+t_int = 20          # time interval in minutes used for correction of overlapping points on the upper and lower branches of the curve
 skok_razpon = 5000  # razpon med tockami zgornje in spodnje krivulje pri praznenju posode
+razpon_tocka = 7000 # razpon med tockami pri detekciji tocke izven krivulje
 
 # create a list of all the .csv files in the working directory
 listfiles = [fi for fi in os.listdir() if fi.endswith(".csv")]
@@ -136,7 +137,7 @@ for file_num in listfiles:
         #df_temp = df_temp[df_temp.iloc[:, 0] >= 0]   #drop all rows where x is negative
         #df_temp = df_temp[df_temp.iloc[:, 0] <= 24]   #drop all rows where x > 24
         df_temp.iloc[:, 1] = df_temp.iloc[:, 1].transform(lambda x: x-x.min())  # shift y values to 0+
-        df_temp = df_temp.sort_values(by=[df_temp.columns[0]])    # sort by values in first (X) column
+        df_temp = df_temp.sort_values(by=[df_temp.columns[0],df_temp.columns[1]])    # sort by values in first (X) column and then if x are the same by y column
         df_temp = df_temp.reset_index(drop=True)     # reset row index values
 
     # Zamik x osi, da so vrednosti med 0 in 24h   
@@ -174,7 +175,7 @@ for file_num in listfiles:
                     #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
                 while s < l-1:
                     if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -skok_razpon:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje znotraj casovnega okna
-                        print('Corrected overlap at the jumps on the date below.', 'Time:', cas_z, 'No. points:', l-k+1)
+                        print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'),'Popravljeno prekrivanje tock.', 'Cas:', cas_z, ',', 'St. tock:', l-k+1)
                         up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo)
                         lo = []
                         for val in df_temp.loc[k:l, 'y']:
@@ -198,7 +199,7 @@ for file_num in listfiles:
             else:
                 k += 1
         
-
+    # Odpravljanje suma
         u = 0
         while u < df_temp.shape[0]-1:
             if ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) > 0) and ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) <= 200):   #zazna sum do 0.2 mm (naslednja tocka je nizja od prejsnje)
@@ -207,6 +208,14 @@ for file_num in listfiles:
             else:
                 u += 1
 
+    # Opozorilo za dodatno tocko izven krivulje     
+        h = 0
+        while h < df_temp.shape[0]-2:
+            if (abs(df_temp.loc[h,'y'] - df_temp.loc[h+1,'y']) >= razpon_tocka) and (abs(df_temp.loc[h+1,'y'] - df_temp.loc[h+2,'y']) >= razpon_tocka) and cas_interval != 0:   #zazna tocko >= 3 mm izven krivulje
+                print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'), 'Tocka', (df_temp.loc[h+1,'x'], df_temp.loc[h+1,'y']), 'izven krivulje.')
+                h += 1
+            else:
+                h += 1
 
         df_temp.iloc[:, 1] = df_temp.iloc[:, 1].transform(lambda x: 20000-x)  # convert y values to descending
         df_temp = df_temp.applymap(str)    # convert values back to string for zero padding
@@ -234,7 +243,7 @@ for file_num in listfiles:
             elif dict_table.loc[m,'Padavina'] == 'dez':
                 re = pd.concat([df_head(n), df_coord, df_meritve(dict_table.loc[m,'Indeks'], dict_table.loc[m,'Time_interval']), df_end], ignore_index=True)
                 df_inter.append(re)
-                print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'))
+                #print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'))
                 n += 1
                 m += 1
         else:  # for a dry day
@@ -262,7 +271,7 @@ for file_num in listfiles:
     df_final.to_csv(os.path.join(folder_name, file_name), sep=' ', index=False, header=False)
     
     
-    print('Dates above are included in the file:', file_name)
+    print('Narejena datoteka:', file_name)
 
 
 
