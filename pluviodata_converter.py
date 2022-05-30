@@ -4,6 +4,10 @@ from datetime import datetime as dt
 import numpy as np
 import calendar
 import argparse
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import webbrowser
+
 
 # working with pandas==1.3.5
 
@@ -17,14 +21,18 @@ t_int = 20          # time interval in minutes used for correction of overlappin
 skok_razpon = 5000  # razpon med tockami zgornje in spodnje krivulje pri praznenju posode
 razpon_tocka = 7000 # razpon med tockami pri detekciji tocke izven krivulje
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('-v', '--verbose', action="store_true", help='Podrobnejsi izpis popravkov prekrivanja in kreiranih datotek')
-
 args = parser.parse_args()
 verbose = args.verbose
 
 verboseprint = print if verbose else lambda *a, **k: None
+
+now = dt.now()
+current_time = now.strftime("%d-%m-%Y_%H-%M-%S")
+plot_name = 'Slike_grafov_' + current_time + '.pdf'
+pp = PdfPages(plot_name)
+
 
 
 # create a list of all the .csv files in the working directory
@@ -125,7 +133,6 @@ for file_num in listfiles:
         return df_date_table_list1
     dict_table = dict_table_()
 
-
             
     # creating a header with station name and date
     def df_head(day):
@@ -139,58 +146,55 @@ for file_num in listfiles:
             df_fraction1 = df_fraction1.append({'code': '0'+split(date_string)[value], 'x': '12345', 'y': '12345'}, ignore_index=True)
         return df_fraction1
 
-    # data points for one day in a specified output format
-    def df_meritve(col, cas_interval):
-        df_temp = df[[df.columns[col],df.columns[col+1]]]   # display first and second columns (X and Y) as df_temp
-        df_temp = df_temp.dropna().drop(index=0) # drop rows with any column having NA/null data and first row
-        df_temp = df_temp.apply(pd.to_numeric)  # convert values in table to float
-        
-        #df_temp = df_temp[df_temp.iloc[:, 0] >= 0]   #drop all rows where x is negative
-        #df_temp = df_temp[df_temp.iloc[:, 0] <= 24]   #drop all rows where x > 24
-        df_temp.iloc[:, 1] = df_temp.iloc[:, 1].transform(lambda x: x-x.min())  # shift y values to 0+
-        df_temp = df_temp.sort_values(by=[df_temp.columns[0],df_temp.columns[1]])    # sort by values in first (X) column and then if x are the same by y column
-        df_temp = df_temp.reset_index(drop=True)     # reset row index values
+
+
+# data points for one day in a specified output format for plotting
+    def df_graf_(col, cas_interval):
+        df_temp_g = df[[df.columns[col],df.columns[col+1]]]   # display first and second columns (X and Y)
+        df_temp_g = df_temp_g.dropna().drop(index=0) # drop rows with any column having NA/null data and first row
+        df_temp_g = df_temp_g.apply(pd.to_numeric)  # convert values in table to float
+        df_temp_g.iloc[:, 1] = df_temp_g.iloc[:, 1].transform(lambda x: x-x.min())  # shift y values to 0+
+        df_temp_g = df_temp_g.sort_values(by=[df_temp_g.columns[0],df_temp_g.columns[1]])    # sort by values in first (X) column and then if x are the same by y column
+        df_temp_g = df_temp_g.reset_index(drop=True)     # reset row index values
 
     # Zamik x osi, da so vrednosti med 0 in 24h   
-        if (df_temp.iloc[-1, 0] - df_temp.iloc[0, 0]) <= 24 and df_temp.iloc[0, 0] < 0:
-            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x-x.min())
-        elif (df_temp.iloc[-1, 0] - df_temp.iloc[0, 0]) <= 24 and df_temp.iloc[-1, 0] > 24:
-            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x-(x.max()-24))
-        elif (df_temp.iloc[-1, 0] - df_temp.iloc[0, 0]) > 24:
-            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x-x.min())
-            df_temp.iloc[:, 0] = df_temp.iloc[:, 0].transform(lambda x: x*24/df_temp.iloc[-1, 0])
+        if (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) <= 24 and df_temp_g.iloc[0, 0] < 0:
+            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-x.min())
+        elif (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) <= 24 and df_temp_g.iloc[-1, 0] > 24:
+            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-(x.max()-24))
+        elif (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) > 24:
+            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-x.min())
+            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x*24/df_temp_g.iloc[-1, 0])
         
-        df_temp = df_temp * 1000
-        df_temp = np.trunc(df_temp)   # cut off decimals
-        df_temp = df_temp.apply(pd.to_numeric, downcast="integer")    # convert values to integer
+        df_temp_g = df_temp_g * 1000
+        df_temp_g = np.trunc(df_temp_g)   # cut off decimals
+        df_temp_g = df_temp_g.apply(pd.to_numeric, downcast="integer")    # convert values to integer
 
         
         # popravljanje prekrivanja krivulj pri praznjenju pluviografa (correct overlap at the jumps)
-        df_temp.columns = ['x', 'y']  # rename columns
+        df_temp_g.columns = ['x', 'y']  # rename columns
         k = 0
-        while k < df_temp.shape[0]-1:
-            if (df_temp.loc[k,'y'] - df_temp.loc[k+1,'y']) > skok_razpon:   #zazna, da se posoda sprazne
-                cas_z = df_temp.loc[k,'x']            # zadnja casovna tocka pred praznjenjem
-                if cas_z + (cas_interval/60*1000) <= df_temp.iloc[-1,0]:
+        while k < df_temp_g.shape[0]-1:
+            if (df_temp_g.loc[k,'y'] - df_temp_g.loc[k+1,'y']) > skok_razpon:   #zazna, da se posoda sprazne
+                cas_z = df_temp_g.loc[k,'x']            # zadnja casovna tocka pred praznjenjem
+                if cas_z + (cas_interval/60*1000) <= df_temp_g.iloc[-1,0]:
                     cas_k = cas_z + (cas_interval/60*1000)      # konec casovnega okna, ki ga gledamo; casovni interval 15 min (15/60*1000)
                 else:
-                    cas_k = df_temp.iloc[-1,0]               # konec casovnega okna sovpada s koncem meritev, v primeru, da je prelivanje konec dneva                
+                    cas_k = df_temp_g.iloc[-1,0]               # konec casovnega okna sovpada s koncem meritev, v primeru, da je prelivanje konec dneva                
                 l = k                                 # k - index na zacetku casovnega okna, l - index na koncu casovnega okna
                 s = k                                 # s - index, ki tece znotraj 15 min casovnega okna
-                if df_temp.loc[l,'x'] < cas_k:        # zanka postavi index l na konec casovnega okna
-                    while df_temp.loc[l,'x'] < cas_k:
+                if df_temp_g.loc[l,'x'] < cas_k:        # zanka postavi index l na konec casovnega okna
+                    while df_temp_g.loc[l,'x'] < cas_k:
                         l += 1
-                    #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
                 else:
                     l=k+1
-                    #print(k, cas_z, cas_k, df_temp.loc[l-1,'x'], l-1)
                 while s < l-1:
-                    if (df_temp.loc[s,'y'] - df_temp.loc[s+1,'y']) < -skok_razpon:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje znotraj casovnega okna
-                        verboseprint(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'),'Popravljeno prekrivanje tock.', 'Cas:', cas_z, ',', 'St. tock:', l-k+1)
+                    if (df_temp_g.loc[s,'y'] - df_temp_g.loc[s+1,'y']) < -skok_razpon:   # zazna, ce pride do prekrivanja zgornjega in spodnjega dela krivulje znotraj casovnega okna
+                        #print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'),'Popravljeno prekrivanje tock.', 'Cas:', cas_z, ',', 'St. tock:', l-k+1)
                         up = []                    # tocke znotraj intervala razdelimo na zgornjo (up) in spodnjo vejo (lo)
                         lo = []
-                        for val in df_temp.loc[k:l, 'y']:
-                            if val >= df_temp.loc[k,'y']:         # meja za razporeditev tock v zgornjo ali spodnjo vejo postavljena na y prve tocke na zgornji veji pri prekrivanju
+                        for val in df_temp_g.loc[k:l, 'y']:
+                            if val >= df_temp_g.loc[k,'y']:         # meja za razporeditev tock v zgornjo ali spodnjo vejo postavljena na y prve tocke na zgornji veji pri prekrivanju
                                 up.append(val)
                                 #up.sort() 
                             else:
@@ -200,7 +204,7 @@ for file_num in listfiles:
                         q = k                 # index, ki tece po 15 min intervalu, po tockah, ki jih je potrebno zamenjati  
                         p = 0                 # index, ki tece po jump listi tock
                         while q <= l:
-                            df_temp.at[q,'y'] = jump[p]  # zamenja tocke v tabeli z urejenimi
+                            df_temp_g.at[q,'y'] = jump[p]  # zamenja tocke v tabeli z urejenimi
                             q += 1
                             p += 1
                         s = l
@@ -212,18 +216,34 @@ for file_num in listfiles:
         
     # Odpravljanje suma
         u = 0
-        while u < df_temp.shape[0]-1:
-            if ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) > 0) and ((df_temp.loc[u,'y'] - df_temp.loc[u+1,'y']) <= 200):   #zazna sum do 0.2 mm (naslednja tocka je nizja od prejsnje)
-                df_temp.loc[u+1,'y'] = df_temp.loc[u,'y']            # nizjo tocko premaknemo gor, na vrednost predhodne tocke
+        while u < df_temp_g.shape[0]-1:
+            if ((df_temp_g.loc[u,'y'] - df_temp_g.loc[u+1,'y']) > 0) and ((df_temp_g.loc[u,'y'] - df_temp_g.loc[u+1,'y']) <= 200):   #zazna sum do 0.2 mm (naslednja tocka je nizja od prejsnje)
+                df_temp_g.loc[u+1,'y'] = df_temp_g.loc[u,'y']            # nizjo tocko premaknemo gor, na vrednost predhodne tocke
                 u += 1
             else:
                 u += 1
+
+        return df_temp_g    
+    
+    
+    
+
+
+# data points for one day in a specified output format - dodatno obdelano po funkciji df_graf_
+    def df_meritve(col, cas_interval):
+        df_temp = df_graf_(col, cas_interval)  # display first and second columns (X and Y) as df_temp
 
     # Opozorilo za dodatno tocko izven krivulje     
         h = 0
         while h < df_temp.shape[0]-2:
             if (abs(df_temp.loc[h,'y'] - df_temp.loc[h+1,'y']) >= razpon_tocka) and (abs(df_temp.loc[h+1,'y'] - df_temp.loc[h+2,'y']) >= razpon_tocka) and cas_interval != 0:   #zazna tocko >= 3 mm izven krivulje
-                print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%y%m%d'), 'Tocka', (df_temp.loc[h+1,'x'], df_temp.loc[h+1,'y']), 'izven krivulje.')
+                print(os.path.splitext(file_num)[0][0:3], dict_table.loc[m,'Datum'].strftime('%d.%m.%Y'), 'Tocka', (df_temp.loc[h+1,'x'], df_temp.loc[h+1,'y']), 'izven krivulje.')
+                df_graf = df_graf_(dict_table.loc[m,'Indeks'],dict_table.loc[m,'Time_interval'])
+                df_graf.plot(x='x',y='y', linestyle='-', marker='o')
+                plt.gcf().suptitle(os.path.splitext(file_num)[0][0:3]+' '+dict_table.loc[m,'Datum'].strftime('%d.%m.%Y')+' '+'Tocka izven krivulje.', fontsize=18, fontweight='bold', y=0.92)
+                plt.gcf().text(0.95, 0.01, '1.) Preveri potencialno sumljive skoke. \n 2.) Preveri potencialno prekrivanje tock (premik casa nazaj).', verticalalignment='bottom', horizontalalignment='right',color='green', fontsize=15)
+                plt.gcf().set_size_inches((15, 10))
+                pp.savefig(plt.gcf())
                 h += 1
             else:
                 h += 1
@@ -234,7 +254,8 @@ for file_num in listfiles:
         df_temp.insert(0, "code", '02', allow_duplicates=True)   # insert an id column (alters column indexes!!)
         df_temp.columns = ['code', 'x', 'y']  # rename columns
         return df_temp    
-    
+
+
     # creating the final dataset in the specified output format for a measuring station for one month
     n = 0
     m = 0
@@ -263,10 +284,6 @@ for file_num in listfiles:
             n += 1  
     df_final = pd.concat(df_inter, ignore_index=True)   
 
-    # write to file
-    #file_name = 'o' + os.path.splitext(file_num)[0][0:3] + date_month_list_filtered[0].strftime('%y%m')
-    #df_final.to_csv(file_name, sep=' ', index=False, header=False)
-
     
     # creating new directory for the relevant month
     folder_name = 'Output_files' + date_month_list_filtered[0].strftime('%y%m')
@@ -285,10 +302,14 @@ for file_num in listfiles:
     verboseprint('Narejena datoteka:', file_name)
 
 
+pp.close()         
+print(os.path.abspath(plot_name))
+#print('file://wsl%24/Ubuntu-20.04'+os.path.abspath(plot_name))
 
+#webbrowser.open('file://wsl%24/Ubuntu-20.04'+os.path.abspath(plot_name), new=2)
 
-
-
-
-
-
+naslov_wsl = os.popen('wslpath -m '+os.path.abspath(plot_name))
+naslov_win = naslov_wsl.read()
+naslov_win = 'file:'+naslov_win.rstrip()
+verboseprint(naslov_win)
+webbrowser.open(naslov_win, new=2)
