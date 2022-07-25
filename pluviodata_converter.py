@@ -7,6 +7,10 @@ import argparse
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import webbrowser
+# import warnings
+
+
+# warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 
 # working with pandas==1.3.5
@@ -165,6 +169,8 @@ for file_num in listfiles:
         elif (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) > 24:
             df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-x.min())
             df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x*24/df_temp_g.iloc[-1, 0])
+        
+        df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x+0.001)  # shift x values to 0+
         
         df_temp_g = df_temp_g * 1000
         df_temp_g = np.trunc(df_temp_g)   # cut off decimals
