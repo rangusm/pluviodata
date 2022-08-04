@@ -13,8 +13,6 @@ import webbrowser
 # warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 
-# working with pandas==1.3.5
-
 '''Note: Date not included in the digitalised file (.csv) is interpreted as dry day! 
         Missing day has a date but no data in the .csv file! 
         Snow days have -s after the date in the .csv file!
@@ -110,25 +108,33 @@ for file_num in listfiles:
                 if '-s' in df.columns[j]:
                     sneg = df.columns[j]
                     sneg = dt.strptime(sneg.replace('-s',''), '%d-%m-%Y')
-                    df_date_table_list1 = df_date_table_list1.append({'Datum' : sneg, 'Indeks' : j, 'Padavina' : 'sneg', 'Time_interval' : t_int}, 
-                        ignore_index = True)
+                    df_sneg = pd.DataFrame({'Datum' : [sneg], 'Indeks' : [j], 'Padavina' : ['sneg'], 'Time_interval' : [15]})
+                    df_date_table_list1 = pd.concat([df_date_table_list1,df_sneg], ignore_index = True)
+                    # df_date_table_list1 = df_date_table_list1.append({'Datum' : sneg, 'Indeks' : j, 'Padavina' : 'sneg', 'Time_interval' : t_int}, 
+                    #     ignore_index = True)
                     j +=2
                 elif '-r' in df.columns[j]:
                     rocno = df.columns[j]
                     rocno = dt.strptime(rocno.replace('-r',''), '%d-%m-%Y')
-                    df_date_table_list1 = df_date_table_list1.append({'Datum' : rocno, 'Indeks' : j, 'Padavina' : 'dez', 'Time_interval' : 0}, 
-                        ignore_index = True)
+                    df_rocno = pd.DataFrame({'Datum' : [rocno], 'Indeks' : [j], 'Padavina' : ['dez'], 'Time_interval' : [0]})
+                    df_date_table_list1 = pd.concat([df_date_table_list1,df_rocno], ignore_index = True)
+                    # df_date_table_list1 = df_date_table_list1.append({'Datum' : rocno, 'Indeks' : j, 'Padavina' : 'dez', 'Time_interval' : 0}, 
+                    #     ignore_index = True)
                     j +=2
                 elif '-s' and '-r' not in df.columns[j] and pd.isna(df.iloc[1,j]) == True:
                     manj = df.columns[j]
                     manj = dt.strptime(df.columns[j], '%d-%m-%Y')
-                    df_date_table_list1 = df_date_table_list1.append({'Datum' : manj, 'Indeks' : j, 'Padavina' : 'manjka', 'Time_interval' : t_int}, 
-                        ignore_index = True)
+                    df_manj = pd.DataFrame({'Datum' : [manj], 'Indeks' : [j], 'Padavina' : ['manjka'], 'Time_interval' : [15]})
+                    df_date_table_list1 = pd.concat([df_date_table_list1,df_manj], ignore_index = True)
+                    # df_date_table_list1 = df_date_table_list1.append({'Datum' : manj, 'Indeks' : j, 'Padavina' : 'manjka', 'Time_interval' : t_int}, 
+                    #     ignore_index = True)
                     j +=2
                 else:
                     dez = dt.strptime(df.columns[j], '%d-%m-%Y')
-                    df_date_table_list1 = df_date_table_list1.append({'Datum' : dez, 'Indeks' : j, 'Padavina' : 'dez', 'Time_interval' : t_int}, 
-                        ignore_index = True)
+                    df_dez = pd.DataFrame({'Datum' : [dez], 'Indeks' : [j], 'Padavina' : ['dez'], 'Time_interval' : [15]})
+                    df_date_table_list1 = pd.concat([df_date_table_list1,df_dez], ignore_index = True)
+                    # df_date_table_list1 = df_date_table_list1.append({'Datum' : dez, 'Indeks' : j, 'Padavina' : 'dez', 'Time_interval' : t_int}, 
+                    #     ignore_index = True)
                     j +=2
             except ValueError:
                 j +=2
@@ -145,9 +151,13 @@ for file_num in listfiles:
         # print the date in the form of izhodni format
         df_fraction1 = pd.DataFrame([['0*', '00000', '00000']],columns=['code', 'x', 'y'])
         for num in os.path.splitext(file_num)[0][0:3]:      # insert .csv filename of the second file in the working directory in the form of izhodni format
-            df_fraction1 = df_fraction1.append({'code': '0'+num, 'x': '12345', 'y': '12345'}, ignore_index=True)
+            df_postaja = pd.DataFrame({'code': ['0'+num], 'x': ['12345'], 'y': ['12345']})
+            df_fraction1 = pd.concat([df_fraction1,df_postaja], ignore_index=True)
+            # df_fraction1 = df_fraction1.append({'code': '0'+num, 'x': '12345', 'y': '12345'}, ignore_index=True)
         for value in range(10):
-            df_fraction1 = df_fraction1.append({'code': '0'+split(date_string)[value], 'x': '12345', 'y': '12345'}, ignore_index=True)
+            df_dan = pd.DataFrame({'code': ['0'+split(date_string)[value]], 'x': ['12345'], 'y': ['12345']})
+            df_fraction1 = pd.concat([df_fraction1,df_dan], ignore_index=True)
+            # df_fraction1 = df_fraction1.append({'code': '0'+split(date_string)[value], 'x': '12345', 'y': '12345'}, ignore_index=True)
         return df_fraction1
 
 
