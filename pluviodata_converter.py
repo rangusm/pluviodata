@@ -303,7 +303,7 @@ for file_num in listfiles:
 
     
     # creating new directory for the relevant month
-    folder_name = 'Output_files_sedmic' + date_month_list_filtered[0].strftime('%y%m')
+    folder_name = 'Output_files' + date_month_list_filtered[0].strftime('%y%m')
     os.makedirs(folder_name, exist_ok=True)  
     
     # writing and saving the file and adding file extension with repetition (version) number
