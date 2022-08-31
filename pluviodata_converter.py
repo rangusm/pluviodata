@@ -121,14 +121,14 @@ for file_num in listfiles:
                     # df_date_table_list1 = df_date_table_list1.append({'Datum' : rocno, 'Indeks' : j, 'Padavina' : 'dez', 'Time_interval' : 0}, 
                     #     ignore_index = True)
                     j +=2
-                elif '-s' and '-r' not in df.columns[j] and pd.isna(df.iloc[1,j]) == True:
+                elif (df.shape[0] == 1 and ('-s' and '-r' not in df.columns[j])) or (df.shape[0] > 1 and ('-s' and '-r' not in df.columns[j] and (pd.isna(df.iloc[1,j]) == True))):
                     manj = df.columns[j]
                     manj = dt.strptime(df.columns[j], '%d-%m-%Y')
                     df_manj = pd.DataFrame({'Datum' : [manj], 'Indeks' : [j], 'Padavina' : ['manjka'], 'Time_interval' : [15]})
                     df_date_table_list1 = pd.concat([df_date_table_list1,df_manj], ignore_index = True)
                     # df_date_table_list1 = df_date_table_list1.append({'Datum' : manj, 'Indeks' : j, 'Padavina' : 'manjka', 'Time_interval' : t_int}, 
                     #     ignore_index = True)
-                    j +=2
+                    j +=2         
                 else:
                     dez = dt.strptime(df.columns[j], '%d-%m-%Y')
                     df_dez = pd.DataFrame({'Datum' : [dez], 'Indeks' : [j], 'Padavina' : ['dez'], 'Time_interval' : [15]})
@@ -172,13 +172,14 @@ for file_num in listfiles:
         df_temp_g = df_temp_g.reset_index(drop=True)     # reset row index values
 
     # Zamik x osi, da so vrednosti med 0 in 24h   
-        if (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) <= 24 and df_temp_g.iloc[0, 0] < 0:
-            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-x.min())
-        elif (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) <= 24 and df_temp_g.iloc[-1, 0] > 24:
-            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-(x.max()-24))
-        elif (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) > 24:
-            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-x.min())
-            df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x*24/df_temp_g.iloc[-1, 0])
+        if df_temp_g.shape[0] > 1:
+            if (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) <= 24 and df_temp_g.iloc[0, 0] < 0:
+                df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-x.min())
+            elif (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) <= 24 and df_temp_g.iloc[-1, 0] > 24:
+                df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-(x.max()-24))
+            elif (df_temp_g.iloc[-1, 0] - df_temp_g.iloc[0, 0]) > 24:
+                df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x-x.min())
+                df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x*24/df_temp_g.iloc[-1, 0])
         
         df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x+0.001)  # shift x values to 0+
         
@@ -302,7 +303,7 @@ for file_num in listfiles:
 
     
     # creating new directory for the relevant month
-    folder_name = 'Output_files' + date_month_list_filtered[0].strftime('%y%m')
+    folder_name = 'Output_files_sedmic' + date_month_list_filtered[0].strftime('%y%m')
     os.makedirs(folder_name, exist_ok=True)  
     
     # writing and saving the file and adding file extension with repetition (version) number
