@@ -168,7 +168,7 @@ for file_num in listfiles:
         df_temp_g = df_temp_g.dropna().drop(index=0) # drop rows with any column having NA/null data and first row
         df_temp_g = df_temp_g.apply(pd.to_numeric)  # convert values in table to float
         df_temp_g.iloc[:, 1] = df_temp_g.iloc[:, 1].transform(lambda x: x-x.min())  # shift y values to 0+
-        df_temp_g = df_temp_g.sort_values(by=[df_temp_g.columns[0],df_temp_g.columns[1]])    # sort by values in first (X) column and then if x are the same by y column
+        df_temp_g = df_temp_g.sort_values(by=[df_temp_g.columns[0],df_temp_g.columns[1]], ascending = [True, False])    # sort by values in first (X) column and then if x are the same by y column descending
         df_temp_g = df_temp_g.reset_index(drop=True)     # reset row index values
 
     # Zamik x osi, da so vrednosti med 0 in 24h   
@@ -182,6 +182,15 @@ for file_num in listfiles:
                 df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x*24/df_temp_g.iloc[-1, 0])
         
         df_temp_g.iloc[:, 0] = df_temp_g.iloc[:, 0].transform(lambda x: x+0.001)  # shift x values to 0+
+
+        # Zamik v desno druge x vrednosti pri enakih x
+        z=0
+        while z < df_temp_g.shape[0]-1:
+            if df_temp_g.iloc[z, 0] == df_temp_g.iloc[z+1, 0]:
+                df_temp_g.iloc[z+1, 0] = df_temp_g.iloc[z+1, 0] + 0.001
+                z +=1
+            else:
+                z +=1
         
         df_temp_g = df_temp_g * 1000
         df_temp_g = np.trunc(df_temp_g)   # cut off decimals
